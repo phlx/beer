@@ -20,9 +20,6 @@
       body {
         font-family: "Fira Sans", sans-serif;
       }
-      .table-main {
-        width: 1800px;
-      }
     </style>
   </head>
   <body>
@@ -56,7 +53,7 @@
               @change="changedStyle"
               class="uk-select"
             >
-              <option selected value="">Все ♾️</option>
+              <option selected value="">Все</option>
               <option
                 v-for="style in Object.entries(selects.styles).map(i => `${i[0]} (${i[1]})`).sort()"
                 :value="style"
@@ -107,9 +104,14 @@
             </button>
           </div>
           <div class="uk-width-1-6" style="padding-top: 8px">
-            <span><span uk-icon="file-text"></span> {{ page() }} / {{ pages() }}</span>
+            <span
+              ><span uk-icon="file-text"></span> {{ page() }} / {{ pages()
+              }}</span
+            >
             <span>&nbsp;&nbsp;&nbsp;</span>
-            <span><span uk-icon="copy"></span> {{ elements() }} / {{ count }}</span>
+            <span
+              ><span uk-icon="copy"></span> {{ elements() }} / {{ count }}</span
+            >
           </div>
         </div>
 
