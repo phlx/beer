@@ -1,0 +1,7 @@
+.idea
+.vscode
+node_modules
+*.nedb
+*.sqlite
+/untappd.json
+/beer.json

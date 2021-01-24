@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BEER</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html {
+        font-size: 20px;
+      }
+      body {
+        font-family: "Fira Sans", sans-serif;
+      }
+      .table-main {
+        width: 1800px;
+      }
+      .table-main th,
+      .table-main td {
+        text-align: left;
+        padding: 10px;
+      }
+      .controls {
+        padding-top: 20px;
+      }
+      .controls > * {
+        margin-right: 20px;
+        padding: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="templates" style="display: none">
+      <script type="text/x-template" id="template-button-direction">
+        <a href="#" @click.stop="click" style="text-decoration: none">
+          <span v-if="dir === 'none'" title="Без сортировки">▶️</span>
+          <span v-if="dir === 'asc'" title="Сортировка по возрастанию">🔼</span>
+          <span v-if="dir === 'desc'" title="Сортировка по убыванию">🔽</span>
+        </a>
+      </script>
+    </div>
+    <div id="app">
+      <div v-if="loading">
+        <span>Loading....</span>
+      </div>
+      <div v-else>
+        <table class="table-main">
+          <thead>
+            <tr>
+              <th><arrow direction="none" field="position"></arrow> #</th>
+              <th><arrow direction="none" field="title"></arrow> Название</th>
+              <th><arrow direction="none" field="price"></arrow> Цена</th>
+              <th><arrow direction="none" field="style"></arrow> Стиль</th>
+              <th><arrow direction="none" field="alcohol"></arrow> Алкоголь</th>
+              <th>
+                <arrow direction="none" field="untappd_popularity"></arrow>
+                Популярность
+              </th>
+              <th>
+                <arrow direction="none" field="untappd_rating_score"></arrow>
+                Оценка
+              </th>
+              <th>
+                <arrow direction="none" field="untappd_rating_count"></arrow>
+                Отзывов
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in items">
+              <td>{{ item.position }}</td>
+              <td style="width: 420px">
+                <span v-if="item.is_draft" title="Разливное">🍺</span>
+                <a :href="item.untappd_beer_url" target="_blank">
+                  {{ item.title }}
+                </a>
+              </td>
+              <td>{{ item.price }} ₽</td>
+              <td>{{ item.style }}</td>
+              <td>{{ item.alcohol.toFixed(1) }} %</td>
+              <td>{{ item.untappd_popularity }}</td>
+              <td>
+                {{ item.untappd_rating_score ?
+                item.untappd_rating_score.toFixed(2) : '' }}
+              </td>
+              <td>{{ item.untappd_rating_count }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="controls">
+          <select v-model="selects.style" @change="changedStyle">
+            <option selected value="">Все ♾️</option>
+            <option
+              v-for="style in Object.entries(selects.styles).map(i => `${i[0]} (${i[1]})`).sort()"
+              :value="style"
+            >
+              {{ style }}
+            </option>
+          </select>
+          <select v-model="selects.boxing" @change="changedBoxing">
+            <option selected value="both">Разливное и в бутылке</option>
+            <option selected value="draft">Разливное</option>
+            <option selected value="bottle">В бутылке</option>
+          </select>
+          <button @click="prev()" :disabled="!hasPrev()">prev</button>
+          <button @click="next()" :disabled="!hasNext()">next</button>
+          <button @click="add(5)" :disabled="!canAdd(5)">+5</button>
+          <button @click="distract(5)" :disabled="!canDistract(5)">-5</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script>
+      window.$eventBus = new Vue();
+
+      Vue.component("arrow", {
+        data() {
+          return {
+            dir: "none",
+          };
+        },
+        props: ["direction", "field"],
+        methods: {
+          click(event) {
+            event.preventDefault();
+            const directions = ["none", "asc", "desc"];
+            const index = directions.indexOf(String(this.dir));
+            this.dir = directions[(index + 1) % directions.length];
+            window.$eventBus.$emit("direction-change", {
+              field: this.field,
+              direction: this.dir,
+            });
+          },
+        },
+        created() {
+          this.dir = this.direction;
+          window.$eventBus.$on("direction-change", (data) => {
+            if (data.field !== this.field && data.direction !== "none") {
+              this.dir = "none";
+            }
+          });
+        },
+        template: "#template-button-direction",
+      });
+
+      const app = new Vue({
+        el: "#app",
+        data() {
+          return {
+            items: [],
+            all: [],
+            loading: true,
+            offset: 0,
+            perPage: 10,
+            sortings: {},
+            selects: {
+              styles: {},
+              style: "",
+              boxings: ["draft", "bottle", "both"],
+              boxing: "both",
+            },
+          };
+        },
+        methods: {
+          sort(sortings) {
+            // sortings = {price: 'asc', title, 'desc'}
+            const compare = (a, b) =>
+              typeof a === "string" ? a.localeCompare(b) : a - b;
+            this.all.sort((a, b) =>
+              Object.entries(sortings).reduce((acc, pair) => {
+                if (acc !== 0) return acc;
+                return (
+                  (pair[1] === "desc" ? -1 : 1) *
+                  compare(a[pair[0]], b[pair[0]])
+                );
+              }, 0)
+            );
+            this.render();
+          },
+          render() {
+            this.items = this.all
+              .filter((item) => {
+                if (this.selects.style) {
+                  if (this.selects.style.split(" (").shift() !== item.style)
+                    return false;
+                }
+                if (this.selects.boxing && this.selects.boxing !== "both") {
+                  if (
+                    this.selects.boxing === "draft"
+                      ? !item.is_draft
+                      : item.is_draft
+                  )
+                    return false;
+                }
+                return true;
+              })
+              .slice(this.offset, this.offset + this.perPage);
+          },
+          hasNext() {
+            return this.offset + this.perPage < this.all.length;
+          },
+          next() {
+            this.offset += this.perPage;
+            this.render();
+          },
+          hasPrev() {
+            return this.offset >= this.perPage;
+          },
+          prev() {
+            this.offset -= this.perPage;
+            this.render();
+          },
+          canAdd(perPage) {
+            return this.perPage < 100 || this.perPage <= this.items.length;
+          },
+          add(perPage) {
+            this.perPage += perPage;
+            this.render();
+          },
+          canDistract(perPage) {
+            return this.perPage > perPage;
+          },
+          distract(perPage) {
+            this.perPage -= perPage;
+            this.render();
+          },
+          changedStyle(event) {
+            this.selects.style = event.target.value;
+            this.render();
+          },
+          changedBoxing(event) {
+            this.selects.boxing = event.target.value;
+            this.render();
+          },
+        },
+        async created() {
+          this.all = await fetch("beer.json").then((r) => r.json());
+          this.all = this.all.map((item) => {
+            item.style = item.style.trim();
+            if (!item.style) {
+              item.style = "?";
+            }
+            this.selects.styles[item.style] =
+              this.selects.styles[item.style] || 0;
+            this.selects.styles[item.style]++;
+            return item;
+          });
+          console.log("selects", this.selects);
+          window.$eventBus.$on("direction-change", (data) => {
+            this.sort(
+              data.direction === "none"
+                ? { position: "asc" }
+                : { [data.field]: data.direction }
+            );
+          });
+          this.loading = false;
+          setTimeout(() => {
+            document.querySelector("th a").click();
+          }, 0);
+        },
+      });
+    </script>
+  </body>
+</html>
