@@ -9,9 +9,13 @@
       href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/uikit@3.6.13/dist/css/uikit.min.css"
+    />
     <style>
       html {
-        font-size: 20px;
+        font-size: 16px;
       }
       body {
         font-family: "Fira Sans", sans-serif;
@@ -19,102 +23,148 @@
       .table-main {
         width: 1800px;
       }
-      .table-main th,
-      .table-main td {
-        text-align: left;
-        padding: 10px;
-      }
-      .controls {
-        padding-top: 20px;
-      }
-      .controls > * {
-        margin-right: 20px;
-        padding: 5px;
-      }
     </style>
   </head>
   <body>
     <div class="templates" style="display: none">
       <script type="text/x-template" id="template-button-direction">
         <a href="#" @click.stop="click" style="text-decoration: none">
-          <span v-if="dir === 'none'" title="Без сортировки">▶️</span>
-          <span v-if="dir === 'asc'" title="Сортировка по возрастанию">🔼</span>
-          <span v-if="dir === 'desc'" title="Сортировка по убыванию">🔽</span>
+          <span v-if="dir === 'none'" uk-tooltip="Без сортировки"><span uk-icon="chevron-right"></span></span>
+          <span v-if="dir === 'asc'" uk-tooltip="Сортировка по возрастанию"><span uk-icon="chevron-down"></span></span>
+          <span v-if="dir === 'desc'" uk-tooltip="Сортировка по убыванию"><span uk-icon="chevron-up"></span></span>
         </a>
       </script>
     </div>
     <div id="app">
       <div v-if="loading">
-        <span>Loading....</span>
+        <span uk-spinner="ratio: 4.5"></span>
       </div>
       <div v-else>
-        <table class="table-main">
-          <thead>
-            <tr>
-              <th><arrow direction="none" field="position"></arrow> #</th>
-              <th><arrow direction="none" field="title"></arrow> Название</th>
-              <th><arrow direction="none" field="price"></arrow> Цена</th>
-              <th><arrow direction="none" field="style"></arrow> Стиль</th>
-              <th><arrow direction="none" field="alcohol"></arrow> Алкоголь</th>
-              <th>
-                <arrow direction="none" field="untappd_popularity"></arrow>
-                Популярность
-              </th>
-              <th>
-                <arrow direction="none" field="untappd_rating_score"></arrow>
-                Оценка
-              </th>
-              <th>
-                <arrow direction="none" field="untappd_rating_count"></arrow>
-                Отзывов
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items">
-              <td>{{ item.position }}</td>
-              <td style="width: 420px">
-                <span v-if="item.is_draft" title="Разливное">🍺</span>
-                <a :href="item.untappd_beer_url" target="_blank">
-                  {{ item.title }}
-                </a>
-              </td>
-              <td>{{ item.price }} ₽</td>
-              <td>{{ item.style }}</td>
-              <td>{{ item.alcohol.toFixed(1) }} %</td>
-              <td>{{ item.untappd_popularity }}</td>
-              <td>
-                {{ item.untappd_rating_score ?
-                item.untappd_rating_score.toFixed(2) : '' }}
-              </td>
-              <td>{{ item.untappd_rating_count }}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="controls">
-          <select v-model="selects.style" @change="changedStyle">
-            <option selected value="">Все ♾️</option>
-            <option
-              v-for="style in Object.entries(selects.styles).map(i => `${i[0]} (${i[1]})`).sort()"
-              :value="style"
+        <div class="uk-child-width-expand uk-grid-small uk-padding" uk-grid>
+          <div class="uk-width-1-6">
+            <input
+              class="uk-input"
+              name="filter"
+              v-model="selects.filter"
+              placeholder="Фильтрация"
+              @input="onFilter"
+            />
+          </div>
+          <div class="uk-width-1-6">
+            <select
+              v-model="selects.style"
+              @change="changedStyle"
+              class="uk-select"
             >
-              {{ style }}
-            </option>
-          </select>
-          <select v-model="selects.boxing" @change="changedBoxing">
-            <option selected value="both">Разливное и в бутылке</option>
-            <option selected value="draft">Разливное</option>
-            <option selected value="bottle">В бутылке</option>
-          </select>
-          <button @click="prev()" :disabled="!hasPrev()">prev</button>
-          <button @click="next()" :disabled="!hasNext()">next</button>
-          <button @click="add(5)" :disabled="!canAdd(5)">+5</button>
-          <button @click="distract(5)" :disabled="!canDistract(5)">-5</button>
+              <option selected value="">Все ♾️</option>
+              <option
+                v-for="style in Object.entries(selects.styles).map(i => `${i[0]} (${i[1]})`).sort()"
+                :value="style"
+              >
+                {{ style }}
+              </option>
+            </select>
+          </div>
+          <div class="uk-width-1-6">
+            <select
+              v-model="selects.boxing"
+              @change="changedBoxing"
+              class="uk-select"
+            >
+              <option selected value="both">Разливное и в бутылке</option>
+              <option selected value="draft">Разливное</option>
+              <option selected value="bottle">В бутылке</option>
+            </select>
+          </div>
+          <div class="uk-width-1-3">
+            <button
+              @click.stop.prevent="prev()"
+              :disabled="!hasPrev()"
+              class="uk-button uk-button-default"
+            >
+              <span uk-icon="arrow-left"></span>
+            </button>
+            <button
+              @click.stop.prevent="next()"
+              :disabled="!hasNext()"
+              class="uk-button uk-button-default"
+            >
+              <span uk-icon="arrow-right"></span>
+            </button>
+            <button
+              @click.stop.prevent="add(5)"
+              :disabled="!canAdd(5)"
+              class="uk-button uk-button-default"
+            >
+              +5️
+            </button>
+            <button
+              @click.stop.prevent="distract(5)"
+              :disabled="!canDistract(5)"
+              class="uk-button uk-button-default"
+            >
+              -5️
+            </button>
+          </div>
+          <div class="uk-width-1-6" style="padding-top: 8px">
+            <span><span uk-icon="file-text"></span> {{ page() }} / {{ pages() }}</span>
+            <span>&nbsp;&nbsp;&nbsp;</span>
+            <span><span uk-icon="copy"></span> {{ elements() }} / {{ count }}</span>
+          </div>
+        </div>
+
+        <div class="uk-padding uk-padding-remove-top">
+          <table class="uk-table uk-table-striped">
+            <thead>
+              <tr>
+                <th><arrow direction="none" field="position"></arrow> #</th>
+                <th><arrow direction="none" field="title"></arrow> Название</th>
+                <th><arrow direction="none" field="price"></arrow> Цена</th>
+                <th><arrow direction="none" field="style"></arrow> Стиль</th>
+                <th>
+                  <arrow direction="none" field="alcohol"></arrow> Алкоголь
+                </th>
+                <th>
+                  <arrow direction="none" field="untappd_popularity"></arrow>
+                  Популярность
+                </th>
+                <th>
+                  <arrow direction="none" field="untappd_rating_score"></arrow>
+                  Оценка
+                </th>
+                <th>
+                  <arrow direction="none" field="untappd_rating_count"></arrow>
+                  Отзывов
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in items">
+                <td>{{ item.position }}</td>
+                <td style="width: 420px">
+                  <span v-if="item.is_draft" uk-tooltip="Разливное">🍺</span>
+                  <a :href="item.untappd_beer_url" target="_blank">
+                    {{ item.title }}
+                  </a>
+                </td>
+                <td>{{ item.price }} ₽</td>
+                <td>{{ item.style }}</td>
+                <td>{{ item.alcohol.toFixed(1) }} %</td>
+                <td>{{ item.untappd_popularity }}</td>
+                <td>
+                  {{ item.untappd_rating_score ?
+                  item.untappd_rating_score.toFixed(2) : '' }}
+                </td>
+                <td>{{ item.untappd_rating_count }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.6.13/dist/js/uikit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.6.13/dist/js/uikit-icons.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script>
       window.$eventBus = new Vue();
@@ -158,18 +208,19 @@
             loading: true,
             offset: 0,
             perPage: 10,
+            count: 0,
             sortings: {},
             selects: {
               styles: {},
               style: "",
               boxings: ["draft", "bottle", "both"],
               boxing: "both",
+              filter: "",
             },
           };
         },
         methods: {
           sort(sortings) {
-            // sortings = {price: 'asc', title, 'desc'}
             const compare = (a, b) =>
               typeof a === "string" ? a.localeCompare(b) : a - b;
             this.all.sort((a, b) =>
@@ -184,40 +235,49 @@
             this.render();
           },
           render() {
-            this.items = this.all
-              .filter((item) => {
-                if (this.selects.style) {
-                  if (this.selects.style.split(" (").shift() !== item.style)
-                    return false;
-                }
-                if (this.selects.boxing && this.selects.boxing !== "both") {
-                  if (
-                    this.selects.boxing === "draft"
-                      ? !item.is_draft
-                      : item.is_draft
-                  )
-                    return false;
-                }
-                return true;
-              })
-              .slice(this.offset, this.offset + this.perPage);
+            this.items = this.all.filter((item) => {
+              if (this.selects.style) {
+                if (this.selects.style.split(" (").shift() !== item.style)
+                  return false;
+              }
+              if (this.selects.boxing && this.selects.boxing !== "both") {
+                if (
+                  this.selects.boxing === "draft"
+                    ? !item.is_draft
+                    : item.is_draft
+                )
+                  return false;
+              }
+              if (this.selects.filter) {
+                return [item.title, item.style, item.country, item.brewery]
+                  .join(" ")
+                  .toLowerCase()
+                  .includes(this.selects.filter.toLowerCase());
+              }
+              return true;
+            });
+            this.count = this.items.length;
+            this.items = this.items.slice(
+              this.offset,
+              this.offset + this.perPage
+            );
           },
           hasNext() {
-            return this.offset + this.perPage < this.all.length;
+            return this.page() < this.pages();
           },
           next() {
             this.offset += this.perPage;
             this.render();
           },
           hasPrev() {
-            return this.offset >= this.perPage;
+            return this.page() > 1;
           },
           prev() {
             this.offset -= this.perPage;
             this.render();
           },
           canAdd(perPage) {
-            return this.perPage < 100 || this.perPage <= this.items.length;
+            return this.perPage < this.count;
           },
           add(perPage) {
             this.perPage += perPage;
@@ -238,6 +298,18 @@
             this.selects.boxing = event.target.value;
             this.render();
           },
+          onFilter() {
+            this.render();
+          },
+          page() {
+            return Math.floor(this.offset / this.perPage + 1);
+          },
+          pages() {
+            return Math.ceil(this.count / this.perPage);
+          },
+          elements() {
+            return this.items.length;
+          },
         },
         async created() {
           this.all = await fetch("beer.json").then((r) => r.json());
@@ -251,7 +323,6 @@
             this.selects.styles[item.style]++;
             return item;
           });
-          console.log("selects", this.selects);
           window.$eventBus.$on("direction-change", (data) => {
             this.sort(
               data.direction === "none"
